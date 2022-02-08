@@ -1,5 +1,6 @@
 package org.nypl.simplified.books.borrowing.internal
 
+import com.io7m.junreachable.UnreachableCodeException
 import kotlinx.coroutines.runBlocking
 import one.irradia.mime.api.MIMECompatibility
 import one.irradia.mime.api.MIMEType
@@ -9,6 +10,8 @@ import org.librarysimplified.http.downloads.LSHTTPDownloads
 import org.nypl.simplified.accounts.api.AccountReadableType
 import org.nypl.simplified.books.api.BookDRMKind
 import org.nypl.simplified.books.book_database.BookDRMInformationHandleLCP
+import org.nypl.simplified.books.book_database.api.BookDRMInformationHandle
+import org.nypl.simplified.books.book_database.api.BookDatabaseEntryFormatHandle
 import org.nypl.simplified.books.book_database.api.BookDatabaseEntryFormatHandle.BookDatabaseEntryFormatHandleEPUB
 import org.nypl.simplified.books.borrowing.BorrowContextType
 import org.nypl.simplified.books.borrowing.internal.BorrowErrorCodes.lcpNotSupported
@@ -266,17 +269,45 @@ class BorrowLCP private constructor() : BorrowSubtaskType {
     passphrase: String
   ) {
     context.taskRecorder.beginNewStep("Saving fulfilled book...")
-    val formatHandle = context.bookDatabaseEntry.findFormatHandle(BookDatabaseEntryFormatHandleEPUB::class.java)
-    checkNotNull(formatHandle) {
-      "A format handle for EPUB must be available."
-    }
 
+    val formatHandle = this.findFormatHandle(context)
     formatHandle.setDRMKind(BookDRMKind.LCP)
+
     val drmHandle = formatHandle.drmInformationHandle as BookDRMInformationHandleLCP
     drmHandle.setHashedPassphrase(passphrase)
 
-    formatHandle.copyInBook(publication.localFile)
-    context.taskRecorder.currentStepSucceeded("Saved book.")
-    context.bookDownloadSucceeded()
+    when (formatHandle) {
+      is BookDatabaseEntryFormatHandleEPUB -> {
+        formatHandle.copyInBook(publication.localFile)
+        context.taskRecorder.currentStepSucceeded("Saved book.")
+        context.bookDownloadSucceeded()
+      }
+      is BookDatabaseEntryFormatHandle.BookDatabaseEntryFormatHandleAudioBook -> {
+        formatHandle.copyInBook(publication.localFile)
+        context.taskRecorder.currentStepSucceeded("Saved book.")
+        context.bookDownloadSucceeded()
+      }
+      is BookDatabaseEntryFormatHandle.BookDatabaseEntryFormatHandlePDF ->
+        throw UnreachableCodeException()
+    }
+  }
+
+  /**
+   * Determine the actual book format we're aiming for at the end of the acquisition path.
+   */
+
+  private fun findFormatHandle(
+    context: BorrowContextType
+  ): BookDatabaseEntryFormatHandle {
+    val eventualType = context.opdsAcquisitionPath.asMIMETypes().last()
+    val formatHandle = context.bookDatabaseEntry.findFormatHandleForContentType(eventualType)
+    if (formatHandle == null) {
+      context.taskRecorder.currentStepFailed(
+        message = "No format handle available for ${eventualType.fullType}",
+        errorCode = BorrowErrorCodes.noFormatHandle
+      )
+      throw BorrowSubtaskFailed()
+    }
+    return formatHandle
   }
 }
