@@ -95,6 +95,12 @@ sealed class BookFormat {
     val manifest: AudioBookManifestReference?,
 
     /**
+     * The audiobook file on disk, if one has been downloaded.
+     */
+
+    val file: File?,
+
+    /**
      * The most recent playback position.
      */
 
