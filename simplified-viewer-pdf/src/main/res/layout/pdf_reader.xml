@@ -12,8 +12,13 @@
         android:theme="?android:attr/actionBarTheme"
         app:title="" />
 
-    <FrameLayout
-        android:id="@+id/pdf_reader_fragment_holder"
+<!--    <FrameLayout-->
+<!--        android:id="@+id/pdf_reader_fragment_holder"-->
+<!--        android:layout_width="match_parent"-->
+<!--        android:layout_height="match_parent" />-->
+
+    <WebView
+        android:id="@+id/readerWebView"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
