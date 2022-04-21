@@ -18,4 +18,10 @@ dependencies {
   implementation libs.palace.drm.core
   implementation libs.r2.streamer
   implementation libs.slf4j
+  implementation("com.github.edrlab.nanohttpd:nanohttpd:master-SNAPSHOT") {
+    exclude group: "org.parboiled"
+  }
+  implementation("com.github.edrlab.nanohttpd:nanohttpd-nanolets:master-SNAPSHOT") {
+    exclude group: "org.parboiled"
+  }
 }

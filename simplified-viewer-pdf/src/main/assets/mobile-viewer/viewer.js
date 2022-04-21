@@ -29,7 +29,7 @@ const CMAP_PACKED = true;
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   "../pdfjs-dist/build/pdf.worker.min.js";
 
-const DEFAULT_URL = "/pdf/book.pdf";
+const DEFAULT_URL = "/book.pdf";
 const DEFAULT_SCALE_DELTA = 1.1;
 const MIN_SCALE = 0.25;
 const MAX_SCALE = 10.0;

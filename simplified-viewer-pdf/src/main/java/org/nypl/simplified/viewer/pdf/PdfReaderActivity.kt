@@ -10,6 +10,7 @@ import android.view.MenuItem
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
+import android.webkit.WebSettings.LOAD_NO_CACHE
 import android.webkit.WebView
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AlertDialog
@@ -37,9 +38,11 @@ import org.nypl.simplified.profiles.controller.api.ProfilesControllerType
 import org.nypl.simplified.ui.thread.api.UIThreadServiceType
 import org.readium.r2.shared.fetcher.Resource
 import org.readium.r2.shared.fetcher.ResourceInputStream
+import org.readium.r2.shared.publication.Publication
 import org.readium.r2.shared.publication.asset.FileAsset
 import org.readium.r2.shared.publication.services.isRestricted
 import org.readium.r2.shared.publication.services.protectionError
+import org.readium.r2.shared.util.getOrDefault
 import org.readium.r2.shared.util.getOrElse
 import org.readium.r2.shared.util.http.DefaultHttpClient
 import org.readium.r2.shared.util.logging.ConsoleWarningLogger
@@ -94,6 +97,7 @@ class PdfReaderActivity :
   private lateinit var entry: BookDatabaseEntryType
   private lateinit var handle: BookDatabaseEntryFormatHandlePDF
   private lateinit var uiThread: UIThreadServiceType
+  private lateinit var server: PdfServer
 
   // vars for the activity to pass back to the reader or table of contents fragment
   private var documentPageIndex: Int = 0
@@ -152,42 +156,71 @@ class PdfReaderActivity :
       }
 
       val webView: WebView = findViewById(R.id.readerWebView)
-      val webSettings: WebSettings = webView.getSettings()
+      val webSettings = webView.settings
 
       webSettings.javaScriptEnabled = true
 
-      val assetLoader = WebViewAssetLoader.Builder()
-        .addPathHandler(
-          "/pdf/",
-          PDFPathHandler(
-            context = this,
-            contentProtectionProviders = this.contentProtectionProviders,
-            drmInfo = this.drmInfo,
-            pdfFile = this.pdfFile
-          )
-        )
-        .addPathHandler(
-          "/assets/",
-          WebViewAssetLoader.AssetsPathHandler(this)
-        )
-        .build()
+//      val pdfPathHandler = PDFPathHandler(
+//        context = this,
+//        contentProtectionProviders = this.contentProtectionProviders,
+//        drmInfo = this.drmInfo,
+//        pdfFile = this.pdfFile
+//      )
+//
+//      val assetLoader = WebViewAssetLoader.Builder()
+//        .addPathHandler(
+//          "/pdf/",
+//          pdfPathHandler
+//        )
+//        .addPathHandler(
+//          "/assets/",
+//          WebViewAssetLoader.AssetsPathHandler(this)
+//        )
+//        .build()
+//
+//      webView.webViewClient = LocalContentWebViewClient(assetLoader, pdfPathHandler)
 
-      webView.webViewClient = LocalContentWebViewClient(assetLoader)
+      this.server = PdfServer(
+        port = 7671,
+        context = this,
+        contentProtectionProviders = this.contentProtectionProviders,
+        drmInfo = this.drmInfo,
+        pdfFile = this.pdfFile
+      )
 
-      webView.loadUrl("https://appassets.androidplatform.net/assets/mobile-viewer/viewer.html")
+      this.server.start()
+
+      webView.loadUrl("http://localhost:7671/assets/mobile-viewer/viewer.html")
     } else {
       this.tableOfContentsList =
         savedInstanceState.getParcelableArrayList(TABLE_OF_CONTENTS) ?: arrayListOf()
     }
   }
 
-  private class LocalContentWebViewClient(private val assetLoader: WebViewAssetLoader) : WebViewClientCompat() {
+  override fun onStop() {
+    super.onStop()
+
+    this.server.stop()
+  }
+
+  private class LocalContentWebViewClient(
+    private val assetLoader: WebViewAssetLoader,
+    private val pdfPathHandler: PDFPathHandler
+  ) : WebViewClientCompat() {
     @RequiresApi(21)
     override fun shouldInterceptRequest(
       view: WebView,
       request: WebResourceRequest
     ): WebResourceResponse? {
-      return assetLoader.shouldInterceptRequest(request.url)
+      // TODO: Check path
+      val range = request.requestHeaders.get("range")
+      val url = request.url
+
+      return if (range == null) {
+        assetLoader.shouldInterceptRequest(request.url)
+      } else {
+        pdfPathHandler.handle(request.url.toString(), range)
+      }
     }
 
     // to support API < 21
@@ -245,11 +278,54 @@ class PdfReaderActivity :
     }
 
     override fun handle(path: String): WebResourceResponse? {
+      val total = runBlocking {
+        resource.length()
+      }.getOrDefault(0L)
+
       return WebResourceResponse(
         "application/pdf",
         "",
+        200,
+        "OK",
+        mapOf(
+          "Accept-Ranges" to "bytes"
+        ),
         ResourceInputStream(this.resource).buffered(256 * 1024)
       )
+    }
+
+    fun handle(path: String, range: String): WebResourceResponse {
+      val resource = this.resource
+      val longRange = parseRange(range)
+
+      val bytes: ByteArray = runBlocking {
+        resource.read(longRange)
+      }.getOrDefault(ByteArray(0))
+
+      val start = longRange.start
+      val end = longRange.endInclusive
+
+      val total = runBlocking {
+        resource.length()
+      }.getOrDefault(0L)
+
+      return WebResourceResponse(
+        "application/pdf",
+        "",
+        206,
+        "Partial Content",
+        mapOf(
+          "Accept-Ranges" to "bytes",
+          "Content-Range" to "bytes $start-$end/$total"
+        ),
+        ByteArrayInputStream(bytes)
+      )
+    }
+
+    fun parseRange(range: String): LongRange {
+      val (start, end) = range.trim().substringAfter("bytes=").split("-").map { it.toLong() }
+
+      return LongRange(start, end)
     }
   }
 
