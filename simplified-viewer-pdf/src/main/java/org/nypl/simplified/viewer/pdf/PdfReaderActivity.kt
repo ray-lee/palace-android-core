@@ -9,8 +9,6 @@ import android.os.Bundle
 import android.view.MenuItem
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
-import android.webkit.WebSettings
-import android.webkit.WebSettings.LOAD_NO_CACHE
 import android.webkit.WebView
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AlertDialog
@@ -36,9 +34,9 @@ import org.nypl.simplified.books.book_database.api.BookDatabaseType
 import org.nypl.simplified.profiles.api.ProfileReadableType
 import org.nypl.simplified.profiles.controller.api.ProfilesControllerType
 import org.nypl.simplified.ui.thread.api.UIThreadServiceType
+import org.nypl.simplified.viewer.pdf.server.PdfServer
 import org.readium.r2.shared.fetcher.Resource
 import org.readium.r2.shared.fetcher.ResourceInputStream
-import org.readium.r2.shared.publication.Publication
 import org.readium.r2.shared.publication.asset.FileAsset
 import org.readium.r2.shared.publication.services.isRestricted
 import org.readium.r2.shared.publication.services.protectionError
@@ -97,7 +95,8 @@ class PdfReaderActivity :
   private lateinit var entry: BookDatabaseEntryType
   private lateinit var handle: BookDatabaseEntryFormatHandlePDF
   private lateinit var uiThread: UIThreadServiceType
-  private lateinit var server: PdfServer
+
+  private var server: PdfServer? = null
 
   // vars for the activity to pass back to the reader or table of contents fragment
   private var documentPageIndex: Int = 0
@@ -180,17 +179,28 @@ class PdfReaderActivity :
 //
 //      webView.webViewClient = LocalContentWebViewClient(assetLoader, pdfPathHandler)
 
-      this.server = PdfServer(
-        port = 7671,
-        context = this,
-        contentProtectionProviders = this.contentProtectionProviders,
-        drmInfo = this.drmInfo,
-        pdfFile = this.pdfFile
-      )
+      try {
+        this.server = PdfServer(
+          port = 7671,
+          context = this,
+          contentProtectionProviders = this.contentProtectionProviders,
+          drmInfo = this.drmInfo,
+          pdfFile = this.pdfFile
+        )
+      } catch (exception: Exception) {
+        showErrorWithRunnable(
+          context = this,
+          title = exception.message ?: "",
+          failure = exception,
+          execute = this::finish
+        )
+      }
 
-      this.server.start()
+      this.server?.let {
+        it.start()
 
-      webView.loadUrl("http://localhost:7671/assets/mobile-viewer/viewer.html")
+        webView.loadUrl("http://localhost:7671/assets/mobile-viewer/viewer.html")
+      }
     } else {
       this.tableOfContentsList =
         savedInstanceState.getParcelableArrayList(TABLE_OF_CONTENTS) ?: arrayListOf()
@@ -200,7 +210,7 @@ class PdfReaderActivity :
   override fun onStop() {
     super.onStop()
 
-    this.server.stop()
+    this.server?.stop()
   }
 
   private class LocalContentWebViewClient(

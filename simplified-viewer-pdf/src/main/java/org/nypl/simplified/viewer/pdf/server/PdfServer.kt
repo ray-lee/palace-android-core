@@ -1,4 +1,4 @@
-package org.nypl.simplified.viewer.pdf
+package org.nypl.simplified.viewer.pdf.server
 
 import android.content.Context
 import android.net.Uri
@@ -11,7 +11,6 @@ import org.nypl.drm.core.ContentProtectionProvider
 import org.nypl.simplified.books.api.BookContentProtections
 import org.nypl.simplified.books.api.BookDRMInformation
 import org.readium.r2.shared.fetcher.Resource
-import org.readium.r2.shared.fetcher.ResourceInputStream
 import org.readium.r2.shared.publication.Publication
 import org.readium.r2.shared.publication.asset.FileAsset
 import org.readium.r2.shared.publication.services.isRestricted
@@ -22,6 +21,7 @@ import org.readium.r2.shared.util.http.DefaultHttpClient
 import org.readium.r2.shared.util.logging.ConsoleWarningLogger
 import org.readium.r2.shared.util.mediatype.MediaType
 import org.readium.r2.streamer.Streamer
+import org.readium.r2.streamer.parser.pdf.PdfParser
 import org.readium.r2.streamer.parser.readium.ReadiumWebPubParser
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -31,11 +31,11 @@ import java.io.FileNotFoundException
 import java.io.IOException
 
 class PdfServer(
-  port: Int,
-  context: Context,
-  contentProtectionProviders: List<ContentProtectionProvider>,
-  drmInfo: BookDRMInformation,
-  pdfFile: File
+    port: Int,
+    context: Context,
+    contentProtectionProviders: List<ContentProtectionProvider>,
+    drmInfo: BookDRMInformation,
+    pdfFile: File
 ) : RouterNanoHTTPD("127.0.0.1", port) {
   private val log: Logger = LoggerFactory.getLogger(PdfServer::class.java)
 
@@ -49,6 +49,9 @@ class PdfServer(
         ReadiumWebPubParser(
           httpClient = DefaultHttpClient(),
           pdfFactory = null
+        ),
+        PdfParser(
+          context = context,
         )
       ),
       contentProtections = BookContentProtections.create(
@@ -61,7 +64,13 @@ class PdfServer(
 
     val publication = runBlocking {
       streamer.open(
-        asset = FileAsset(pdfFile, MediaType.LCP_PROTECTED_PDF),
+        asset = FileAsset(
+          file = pdfFile,
+          mediaType = when (drmInfo) {
+            is BookDRMInformation.LCP -> MediaType.LCP_PROTECTED_PDF
+            else -> MediaType.PDF
+          }
+        ),
         allowUserInteraction = false,
         warnings = ConsoleWarningLogger()
       )
@@ -89,32 +98,32 @@ class PdfServer(
 
     val pdfResource = this.pdfResource
 
-    runBlocking {
-      pdfResource.close()
-    }
+      runBlocking {
+          pdfResource.close()
+      }
 
     this.publication.close()
   }
 
   public class AssetHandler : BaseHandler() {
     override fun handle(
-      resource: UriResource,
-      uri: Uri,
-      parameters: Map<String, String>?,
-      session: IHTTPSession
+        resource: UriResource,
+        uri: Uri,
+        parameters: Map<String, String>?,
+        session: IHTTPSession
     ): Response {
       val filename = uri.pathSegments.drop(1).joinToString("/")
       val context = resource.initParameter(Context::class.java)
       val assetStream = context.assets.open(filename)
 
       val mediaType = runBlocking {
-        MediaType.of(fileExtension = File(filename).extension) ?: MediaType.BINARY
+          MediaType.of(fileExtension = File(filename).extension) ?: MediaType.BINARY
       }
 
       return Response.newChunkedResponse(
-        Status.OK,
-        mediaType.toString(),
-        assetStream
+          Status.OK,
+          mediaType.toString(),
+          assetStream
       )
     }
   }
@@ -123,16 +132,16 @@ class PdfServer(
     private var length: Long? = null
 
     override fun handle(
-      resource: UriResource,
-      uri: Uri,
-      parameters: Map<String, String>?,
-      session: IHTTPSession
+        resource: UriResource,
+        uri: Uri,
+        parameters: Map<String, String>?,
+        session: IHTTPSession
     ): Response {
       val pdfResource = resource.initParameter(Resource::class.java)
 
       val length = this.length ?:
         runBlocking {
-          pdfResource.length()
+            pdfResource.length()
         }
           .getOrDefault(0L)
           .also {
@@ -152,9 +161,9 @@ class PdfServer(
       length: Long
     ): Response {
       return Response.newChunkedResponse(
-        Status.OK,
-        "application/pdf",
-        ByteArrayInputStream(ByteArray(128))
+          Status.OK,
+          "application/pdf",
+          ByteArrayInputStream(ByteArray(128))
       ).apply {
         addHeader("Accept-Ranges", "bytes")
         addHeader("Cache-Control", "no-store")
@@ -163,23 +172,23 @@ class PdfServer(
     }
 
     private fun handlePartial(
-      pdfResource: Resource,
-      length: Long,
-      range: String
+        pdfResource: Resource,
+        length: Long,
+        range: String
     ): Response {
       val longRange = parseRange(range)
 
       val data = runBlocking {
-        pdfResource.read(longRange)
+          pdfResource.read(longRange)
       }.getOrDefault(ByteArray(0))
 
       val start = longRange.start
       val end = longRange.endInclusive
 
       return Response.newFixedLengthResponse(
-        Status.PARTIAL_CONTENT,
-        "application/pdf",
-        data
+          Status.PARTIAL_CONTENT,
+          "application/pdf",
+          data
       ).apply {
         addHeader("Accept-Ranges", "bytes")
         addHeader("Cache-Control", "no-store")
@@ -198,6 +207,12 @@ class PdfServer(
 
   public abstract class BaseHandler : DefaultHandler() {
     private val log: Logger = LoggerFactory.getLogger(BaseHandler::class.java)
+
+    private fun createErrorResponse(status: Status) =
+      Response.newFixedLengthResponse(status, "text/html", "")
+
+    val notFoundResponse: Response
+      get() = createErrorResponse(Status.NOT_FOUND)
 
     override fun getMimeType() = null
     override fun getText() = ""
@@ -230,15 +245,10 @@ class PdfServer(
     }
 
     abstract fun handle(
-      resource: UriResource,
-      uri: Uri,
-      parameters: Map<String, String>?,
-      session: IHTTPSession
+        resource: UriResource,
+        uri: Uri,
+        parameters: Map<String, String>?,
+        session: IHTTPSession
     ): Response
-
-    fun createErrorResponse(status: Status) =
-      Response.newFixedLengthResponse(status, "text/html", "")
-
-    val notFoundResponse: Response get() = createErrorResponse(Status.NOT_FOUND)
   }
 }
