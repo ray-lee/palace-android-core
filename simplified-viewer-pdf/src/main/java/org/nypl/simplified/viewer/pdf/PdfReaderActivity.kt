@@ -6,10 +6,13 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.view.Menu
+import android.view.MenuInflater
 import android.view.MenuItem
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
+import android.widget.FrameLayout
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -95,6 +98,8 @@ class PdfReaderActivity :
   private lateinit var entry: BookDatabaseEntryType
   private lateinit var handle: BookDatabaseEntryFormatHandlePDF
   private lateinit var uiThread: UIThreadServiceType
+  private lateinit var pdfReaderContainer: FrameLayout
+  private lateinit var webView: WebView
 
   private var server: PdfServer? = null
 
@@ -132,7 +137,7 @@ class PdfReaderActivity :
     this.setSupportActionBar(toolbar)
     this.supportActionBar?.setDisplayHomeAsUpEnabled(true)
     this.supportActionBar?.setDisplayShowHomeEnabled(true)
-    this.supportActionBar?.title = ""
+    this.supportActionBar?.title = this.documentTitle
 
     try {
       this.entry = books.entry(id)
@@ -154,10 +159,15 @@ class PdfReaderActivity :
         WebView.setWebContentsDebuggingEnabled(true);
       }
 
-      val webView: WebView = findViewById(R.id.readerWebView)
+      this.pdfReaderContainer = findViewById(R.id.pdf_reader_container)
+      this.webView = WebView(this)
+
+//      val webView: WebView = findViewById(R.id.readerWebView)
       val webSettings = webView.settings
 
       webSettings.javaScriptEnabled = true
+
+      this.pdfReaderContainer.addView(this.webView)
 
 //      val pdfPathHandler = PDFPathHandler(
 //        context = this,
@@ -207,10 +217,29 @@ class PdfReaderActivity :
     }
   }
 
-  override fun onStop() {
-    super.onStop()
+  override fun onCreateOptionsMenu(menu: Menu?): Boolean {
+    val inflater: MenuInflater = menuInflater
+    inflater.inflate(R.menu.pdf_reader_menu, menu)
+
+    menu?.findItem(R.id.readerMenuTOC)?.setOnMenuItemClickListener {
+      this.onReaderMenuTOCSelected()
+    }
+
+    return true
+  }
+
+  private fun onReaderMenuTOCSelected(): Boolean {
+//    this.readerModel.publishViewEvent(SR2ReaderViewNavigationOpenTOC)
+
+    return true
+  }
+
+  override fun onDestroy() {
+    super.onDestroy()
 
     this.server?.stop()
+    this.pdfReaderContainer.removeAllViews()
+    this.webView.destroy()
   }
 
   private class LocalContentWebViewClient(

@@ -27,7 +27,7 @@ const CMAP_URL = "../pdfjs-dist/cmaps/";
 const CMAP_PACKED = true;
 
 pdfjsLib.GlobalWorkerOptions.workerSrc =
-  "../pdfjs-dist/build/pdf.worker.min.js";
+  "../pdfjs-dist/build/pdf.worker.js";
 
 const DEFAULT_URL = "/book.pdf";
 const DEFAULT_SCALE_DELTA = 1.1;
@@ -82,7 +82,9 @@ const PDFViewerApplication = {
         self.pdfDocument = pdfDocument;
         self.pdfViewer.setDocument(pdfDocument);
         self.pdfLinkService.setDocument(pdfDocument);
-        self.pdfHistory.initialize({ fingerprint: pdfDocument.fingerprint });
+        self.pdfHistory.initialize({
+          fingerprint: pdfDocument.fingerprints[0],
+        });
 
         self.loadingBar.hide();
         self.setTitleUsingMetadata(pdfDocument);
@@ -159,7 +161,7 @@ const PDFViewerApplication = {
   },
 
   get loadingBar() {
-    const bar = new pdfjsViewer.ProgressBar("#loadingBar", {});
+    const bar = new pdfjsViewer.ProgressBar("#loadingBar");
 
     return pdfjsLib.shadow(this, "loadingBar", bar);
   },
@@ -187,7 +189,7 @@ const PDFViewerApplication = {
       // Provides some basic debug information
       console.log(
         "PDF " +
-          pdfDocument.fingerprint +
+          pdfDocument.fingerprints[0] +
           " [" +
           info.PDFFormatVersion +
           " " +
@@ -355,8 +357,6 @@ const PDFViewerApplication = {
     const container = document.getElementById("viewerContainer");
     const pdfViewer = new pdfjsViewer.PDFViewer({
       container,
-      disableAutoFetch: true,
-      disableStream: true,
       eventBus,
       linkService,
       l10n: this.l10n,
