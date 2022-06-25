@@ -209,7 +209,7 @@ class PdfReaderActivity :
       this.server?.let {
         it.start()
 
-        webView.loadUrl("http://localhost:7671/assets/mobile-viewer/viewer.html")
+        webView.loadUrl("http://localhost:7671/assets/viewer.html")
       }
     } else {
       this.tableOfContentsList =
@@ -225,11 +225,20 @@ class PdfReaderActivity :
       this.onReaderMenuTOCSelected()
     }
 
+    menu?.findItem(R.id.readerMenuSettings)?.setOnMenuItemClickListener {
+      this.onReaderMenuSettingsSelected()
+    }
     return true
   }
 
   private fun onReaderMenuTOCSelected(): Boolean {
-//    this.readerModel.publishViewEvent(SR2ReaderViewNavigationOpenTOC)
+    this.webView.evaluateJavascript("toggleSidebar()", null)
+
+    return true
+  }
+
+  private fun onReaderMenuSettingsSelected(): Boolean {
+    this.webView.evaluateJavascript("toggleSecondaryToolbar()", null)
 
     return true
   }
