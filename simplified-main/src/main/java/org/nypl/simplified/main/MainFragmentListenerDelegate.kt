@@ -616,8 +616,11 @@ internal class MainFragmentListenerDelegate(
     book: Book,
     format: BookFormat
   ) {
+    this.profilesController.profileCurrent().preferences().enablePDFJSReader
     val viewerPreferences =
-      ViewerPreferences(flags = mapOf())
+      ViewerPreferences(flags = mapOf(
+        "enablePDFJSReader" to true
+      ))
 
     Viewers.openViewer(
       activity = this.fragment.requireActivity(),
