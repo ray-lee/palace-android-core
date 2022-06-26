@@ -3,25 +3,16 @@ package org.nypl.simplified.viewer.pdf
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
-import android.os.Build
 import android.os.Bundle
-import android.view.Menu
-import android.view.MenuInflater
 import android.view.MenuItem
-import android.webkit.WebResourceRequest
-import android.webkit.WebResourceResponse
-import android.webkit.WebView
-import android.widget.FrameLayout
-import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
-import androidx.webkit.WebViewAssetLoader
-import androidx.webkit.WebViewClientCompat
 import edu.umn.minitex.pdf.android.api.PdfFragmentListenerType
 import edu.umn.minitex.pdf.android.api.TableOfContentsFragmentListenerType
 import edu.umn.minitex.pdf.android.api.TableOfContentsItem
+import edu.umn.minitex.pdf.android.pdfviewer.PdfViewerFragment
+import edu.umn.minitex.pdf.android.pdfviewer.TableOfContentsFragment
 import kotlinx.coroutines.runBlocking
 import org.librarysimplified.services.api.Services
 import org.nypl.drm.core.ContentProtectionProvider
@@ -37,13 +28,10 @@ import org.nypl.simplified.books.book_database.api.BookDatabaseType
 import org.nypl.simplified.profiles.api.ProfileReadableType
 import org.nypl.simplified.profiles.controller.api.ProfilesControllerType
 import org.nypl.simplified.ui.thread.api.UIThreadServiceType
-import org.nypl.simplified.viewer.pdf.server.PdfServer
-import org.readium.r2.shared.fetcher.Resource
 import org.readium.r2.shared.fetcher.ResourceInputStream
 import org.readium.r2.shared.publication.asset.FileAsset
 import org.readium.r2.shared.publication.services.isRestricted
 import org.readium.r2.shared.publication.services.protectionError
-import org.readium.r2.shared.util.getOrDefault
 import org.readium.r2.shared.util.getOrElse
 import org.readium.r2.shared.util.http.DefaultHttpClient
 import org.readium.r2.shared.util.logging.ConsoleWarningLogger
@@ -56,8 +44,8 @@ import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
-import java.util.*
-
+import java.util.ServiceLoader
+import kotlin.collections.ArrayList
 
 class PdfReaderActivity :
   AppCompatActivity(),
@@ -98,10 +86,6 @@ class PdfReaderActivity :
   private lateinit var entry: BookDatabaseEntryType
   private lateinit var handle: BookDatabaseEntryFormatHandlePDF
   private lateinit var uiThread: UIThreadServiceType
-  private lateinit var pdfReaderContainer: FrameLayout
-  private lateinit var webView: WebView
-
-  private var server: PdfServer? = null
 
   // vars for the activity to pass back to the reader or table of contents fragment
   private var documentPageIndex: Int = 0
@@ -137,7 +121,7 @@ class PdfReaderActivity :
     this.setSupportActionBar(toolbar)
     this.supportActionBar?.setDisplayHomeAsUpEnabled(true)
     this.supportActionBar?.setDisplayShowHomeEnabled(true)
-    this.supportActionBar?.title = this.documentTitle
+    this.supportActionBar?.title = ""
 
     try {
       this.entry = books.entry(id)
@@ -149,231 +133,15 @@ class PdfReaderActivity :
 
     if (savedInstanceState == null) {
       // Get the new instance of the reader you want to load here.
-//      val readerFragment = PdfViewerFragment.newInstance()
-//
-//      this.supportFragmentManager
-//        .beginTransaction()
-//        .replace(R.id.pdf_reader_fragment_holder, readerFragment, "READER")
-//        .commit()
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-        WebView.setWebContentsDebuggingEnabled(true);
-      }
+      val readerFragment = PdfViewerFragment.newInstance()
 
-      this.pdfReaderContainer = findViewById(R.id.pdf_reader_container)
-      this.webView = WebView(this)
-
-//      val webView: WebView = findViewById(R.id.readerWebView)
-      val webSettings = webView.settings
-
-      webSettings.javaScriptEnabled = true
-
-      this.pdfReaderContainer.addView(this.webView)
-
-//      val pdfPathHandler = PDFPathHandler(
-//        context = this,
-//        contentProtectionProviders = this.contentProtectionProviders,
-//        drmInfo = this.drmInfo,
-//        pdfFile = this.pdfFile
-//      )
-//
-//      val assetLoader = WebViewAssetLoader.Builder()
-//        .addPathHandler(
-//          "/pdf/",
-//          pdfPathHandler
-//        )
-//        .addPathHandler(
-//          "/assets/",
-//          WebViewAssetLoader.AssetsPathHandler(this)
-//        )
-//        .build()
-//
-//      webView.webViewClient = LocalContentWebViewClient(assetLoader, pdfPathHandler)
-
-      try {
-        this.server = PdfServer(
-          port = 7671,
-          context = this,
-          contentProtectionProviders = this.contentProtectionProviders,
-          drmInfo = this.drmInfo,
-          pdfFile = this.pdfFile
-        )
-      } catch (exception: Exception) {
-        showErrorWithRunnable(
-          context = this,
-          title = exception.message ?: "",
-          failure = exception,
-          execute = this::finish
-        )
-      }
-
-      this.server?.let {
-        it.start()
-
-        webView.loadUrl("http://localhost:7671/assets/viewer.html")
-      }
+      this.supportFragmentManager
+        .beginTransaction()
+        .replace(R.id.pdf_reader_fragment_holder, readerFragment, "READER")
+        .commit()
     } else {
       this.tableOfContentsList =
         savedInstanceState.getParcelableArrayList(TABLE_OF_CONTENTS) ?: arrayListOf()
-    }
-  }
-
-  override fun onCreateOptionsMenu(menu: Menu?): Boolean {
-    val inflater: MenuInflater = menuInflater
-    inflater.inflate(R.menu.pdf_reader_menu, menu)
-
-    menu?.findItem(R.id.readerMenuTOC)?.setOnMenuItemClickListener {
-      this.onReaderMenuTOCSelected()
-    }
-
-    menu?.findItem(R.id.readerMenuSettings)?.setOnMenuItemClickListener {
-      this.onReaderMenuSettingsSelected()
-    }
-    return true
-  }
-
-  private fun onReaderMenuTOCSelected(): Boolean {
-    this.webView.evaluateJavascript("toggleSidebar()", null)
-
-    return true
-  }
-
-  private fun onReaderMenuSettingsSelected(): Boolean {
-    this.webView.evaluateJavascript("toggleSecondaryToolbar()", null)
-
-    return true
-  }
-
-  override fun onDestroy() {
-    super.onDestroy()
-
-    this.server?.stop()
-    this.pdfReaderContainer.removeAllViews()
-    this.webView.destroy()
-  }
-
-  private class LocalContentWebViewClient(
-    private val assetLoader: WebViewAssetLoader,
-    private val pdfPathHandler: PDFPathHandler
-  ) : WebViewClientCompat() {
-    @RequiresApi(21)
-    override fun shouldInterceptRequest(
-      view: WebView,
-      request: WebResourceRequest
-    ): WebResourceResponse? {
-      // TODO: Check path
-      val range = request.requestHeaders.get("range")
-      val url = request.url
-
-      return if (range == null) {
-        assetLoader.shouldInterceptRequest(request.url)
-      } else {
-        pdfPathHandler.handle(request.url.toString(), range)
-      }
-    }
-
-    // to support API < 21
-    override fun shouldInterceptRequest(
-      view: WebView,
-      url: String
-    ): WebResourceResponse? {
-      return assetLoader.shouldInterceptRequest(Uri.parse(url))
-    }
-  }
-
-  private class PDFPathHandler(
-    context: Context,
-    contentProtectionProviders: List<ContentProtectionProvider>,
-    drmInfo: BookDRMInformation,
-    pdfFile: File
-  ) : WebViewAssetLoader.PathHandler {
-    private lateinit var resource: Resource
-
-    init {
-      val streamer = Streamer(
-        context = context,
-        parsers = listOf(
-          ReadiumWebPubParser(
-            httpClient = DefaultHttpClient(),
-            pdfFactory = null
-          )
-        ),
-        contentProtections = BookContentProtections.create(
-          context = context,
-          contentProtectionProviders = contentProtectionProviders,
-          drmInfo = drmInfo
-        ),
-        ignoreDefaultParsers = true
-      )
-
-      val publication = runBlocking {
-        streamer.open(
-          asset = FileAsset(pdfFile, MediaType.LCP_PROTECTED_PDF),
-          allowUserInteraction = false,
-          warnings = ConsoleWarningLogger()
-        )
-      }.getOrElse {
-        throw IOException("Failed to open PDF", it)
-      }
-
-      if (publication.isRestricted) {
-        throw IOException("Failed to unlock PDF", publication.protectionError)
-      }
-
-      // We only support a single PDF file in the archive.
-      val link = publication.readingOrder.first()
-
-      this.resource = publication.get(link)
-    }
-
-    override fun handle(path: String): WebResourceResponse? {
-      val total = runBlocking {
-        resource.length()
-      }.getOrDefault(0L)
-
-      return WebResourceResponse(
-        "application/pdf",
-        "",
-        200,
-        "OK",
-        mapOf(
-          "Accept-Ranges" to "bytes"
-        ),
-        ResourceInputStream(this.resource).buffered(256 * 1024)
-      )
-    }
-
-    fun handle(path: String, range: String): WebResourceResponse {
-      val resource = this.resource
-      val longRange = parseRange(range)
-
-      val bytes: ByteArray = runBlocking {
-        resource.read(longRange)
-      }.getOrDefault(ByteArray(0))
-
-      val start = longRange.start
-      val end = longRange.endInclusive
-
-      val total = runBlocking {
-        resource.length()
-      }.getOrDefault(0L)
-
-      return WebResourceResponse(
-        "application/pdf",
-        "",
-        206,
-        "Partial Content",
-        mapOf(
-          "Accept-Ranges" to "bytes",
-          "Content-Range" to "bytes $start-$end/$total"
-        ),
-        ByteArrayInputStream(bytes)
-      )
-    }
-
-    fun parseRange(range: String): LongRange {
-      val (start, end) = range.trim().substringAfter("bytes=").split("-").map { it.toLong() }
-
-      return LongRange(start, end)
     }
   }
 
@@ -476,13 +244,13 @@ class PdfReaderActivity :
     log.debug("onReaderWantsTableOfContentsFragment")
 
     // Get the new instance of the [TableOfContentsFragment] you want to load here.
-//    val readerFragment = TableOfContentsFragment.newInstance()
+    val readerFragment = TableOfContentsFragment.newInstance()
 
-//    this.supportFragmentManager
-//      .beginTransaction()
-//      .replace(R.id.pdf_reader_fragment_holder, readerFragment, "READER")
-//      .addToBackStack(null)
-//      .commit()
+    this.supportFragmentManager
+      .beginTransaction()
+      .replace(R.id.pdf_reader_fragment_holder, readerFragment, "READER")
+      .addToBackStack(null)
+      .commit()
   }
   //endregion
 
