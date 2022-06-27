@@ -8,26 +8,30 @@ body.palace, .palace input, .palace button, .palace select {
 
 #sidebarContainer {
   top: 0;
-  bottom: 50px;
+  bottom: 5px;
 }
 
 #toolbarSidebar {
-  height: 50px;
+  height: 52px;
 }
 
 #sidebarContent {
-  top: 50px;
+  top: 53px;
 }
 
 #viewerContainer {
   top: 0;
   right: 0;
-  bottom: 50px;
+  bottom: 52px;
   left: 0;
 }
 
 #toolbarContainer {
-  height: 50px;
+  height: 52px;
+}
+
+#loadingBar {
+  height: 0;
 }
 
 .toolbar {
@@ -43,13 +47,26 @@ body.palace, .palace input, .palace button, .palace select {
 }
 
 .toolbarField {
+  margin: 2px 0 0 0;
   font-size: 14px;
-  line-height: 32px;
+  line-height: 39px;
 }
 
 .toolbarLabel {
+  margin: 2px 2px 0 2px;
+  padding: 5px 7px;
   font-size: 14px;
-  line-height: 30px;
+  line-height: 39px;
+}
+
+.splitToolbarButtonSeparator {
+  margin: 12px 0;
+  height: 26px;
+}
+
+.verticalToolbarSeparator {
+  margin: 12px 2px;
+  height: 26px;
 }
 
 #pageNumber {

@@ -15,7 +15,7 @@ class PdfViewerProvider : ViewerProviderType {
       LoggerFactory.getLogger(PdfViewerProvider::class.java)
 
   override val name: String =
-    "org.nypl.simplified.viewer.pdf.PdfViewerProvider"
+    "org.nypl.simplified.viewer.pdf.pdfjs.PdfViewerProvider"
 
   override fun canSupport(
       preferences: ViewerPreferences,
@@ -29,7 +29,7 @@ class PdfViewerProvider : ViewerProviderType {
         false
       }
       is BookFormat.BookFormatPDF -> {
-        true
+        preferences.flags["enablePDFJSReader"] == true
       }
     }
   }

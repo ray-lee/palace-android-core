@@ -37,7 +37,6 @@ import org.nypl.simplified.books.book_database.api.BookDatabaseType
 import org.nypl.simplified.profiles.api.ProfileReadableType
 import org.nypl.simplified.profiles.controller.api.ProfilesControllerType
 import org.nypl.simplified.ui.thread.api.UIThreadServiceType
-import org.nypl.simplified.viewer.pdf.R
 import org.nypl.simplified.viewer.pdf.pdfjs.server.PdfServer
 import org.readium.r2.shared.fetcher.Resource
 import org.readium.r2.shared.fetcher.ResourceInputStream
@@ -113,7 +112,7 @@ class PdfReaderActivity :
   override fun onCreate(savedInstanceState: Bundle?) {
     log.debug("onCreate")
     super.onCreate(savedInstanceState)
-    setContentView(R.layout.pdf_reader)
+    setContentView(R.layout.pdfjs_reader)
 
     val intentParams = intent?.getSerializableExtra(PARAMS_ID) as PdfReaderParameters
     this.documentTitle = intentParams.documentTile
