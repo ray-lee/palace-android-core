@@ -25,19 +25,25 @@ See https://github.com/adobe-type-tools/cmap-resources
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
     <meta name="google" content="notranslate">
-    <title>PDF.js viewer</title>
+    <title>PDF Viewer</title>
 
     <link rel="stylesheet" href="./pdfjs-2.14.305-dist/web/viewer.css">
     <link rel="stylesheet" href="./viewer.css">
-
-    <!-- This snippet is used in production (included from viewer.html) -->
-    <link rel="resource" type="application/l10n" href="locale/locale.properties">
+    <link rel="resource" type="application/l10n" href="./pdfjs-2.14.305-dist/web/locale/locale.properties">
 
     <script src="./pdfjs-2.14.305-dist/build/pdf.js"></script>
     <script src="./pdfjs-2.14.305-dist/web/viewer.js"></script>
+
     <script>
       PDFViewerApplicationOptions.set("workerSrc", "./pdfjs-2.14.305-dist/build/pdf.worker.js");
       PDFViewerApplicationOptions.set("defaultUrl", "/book.pdf");
+
+      PDFViewerApplication.initializedPromise.then(() => {
+        PDFViewerApplication.eventBus.on("pagechanging", () => {
+          console.log(PDFViewerApplication.page);
+          PDFListener.onPageChanged(PDFViewerApplication.page);
+        }, { external: true });
+      });
 
       function toggleSidebar() {
         document.getElementById("sidebarToggle").click();
@@ -47,6 +53,68 @@ See https://github.com/adobe-type-tools/cmap-resources
 
       function toggleSecondaryToolbar() {
         document.getElementById("secondaryToolbarToggle").click();
+      }
+
+      function initPinchZoom() {
+        const touchDistance = (event) => {
+          return Math.hypot(
+            event.touches[0].pageX - event.touches[1].pageX,
+            event.touches[0].pageY - event.touches[1].pageY
+          );
+        };
+
+        const viewerContainer = document.getElementById("viewerContainer");
+
+        let containerHeight = 0;
+        let containerWidth = 0;
+        let startDistance = 0;
+        let startScale = 0;
+        let currentTouchDistanceRatio = 1;
+
+        viewerContainer.addEventListener("touchstart", (event) => {
+          if (event.touches.length === 2) {
+            event.preventDefault(); // Prevent page scroll
+
+            const rect = viewerContainer.getBoundingClientRect();
+
+            containerHeight = rect.height;
+            containerWidth = rect.width;
+
+            startDistance = touchDistance(event);
+            startScale = PDFViewerApplication.pdfViewer.currentScale;
+
+            console.log("startScale=" + startScale);
+          }
+        });
+
+        viewerContainer.addEventListener("touchmove", (event) => {
+          if (event.touches.length === 2) {
+            event.preventDefault(); // Prevent page scroll
+
+            const currentDistance = touchDistance(event);
+
+            currentTouchDistanceRatio = currentDistance / startDistance;
+
+            const deltaX = currentTouchDistanceRatio > 1 ? (((containerWidth * currentTouchDistanceRatio) - containerWidth) / 2) : 0;
+            const deltaY = ((containerHeight * currentTouchDistanceRatio) - containerHeight) / 2;
+            const transform = `translate(${deltaX}px, ${deltaY}px) scale(${currentTouchDistanceRatio})`;
+
+            viewerContainer.style.transform = transform;
+            viewerContainer.style.WebkitTransform = transform;
+          }
+        });
+
+        viewerContainer.addEventListener('touchend', (event) => {
+          console.log('touchend', event);
+          viewerContainer.style.transform = "";
+          viewerContainer.style.WebkitTransform = "";
+
+          const newScale = startScale * currentTouchDistanceRatio;
+
+          console.log("new scale=" + newScale);
+
+          PDFViewerApplication.pdfViewer.currentScaleValue = newScale;
+        });
       }
     </script>
   </head>

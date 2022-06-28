@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.view.Menu
 import android.view.MenuInflater
 import android.view.MenuItem
+import android.webkit.JavascriptInterface
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
@@ -162,6 +163,16 @@ class PdfReaderActivity :
       this.pdfReaderContainer = findViewById(R.id.pdf_reader_container)
       this.webView = WebView(this)
 
+      this.webView.addJavascriptInterface(
+        object {
+          @JavascriptInterface
+          public fun onPageChanged(pageIndex: Int) {
+            this@PdfReaderActivity.onReaderPageChanged(pageIndex)
+          }
+        },
+        "PDFListener"
+      );
+
 //      val webView: WebView = findViewById(R.id.readerWebView)
       val webSettings = webView.settings
 
@@ -209,7 +220,7 @@ class PdfReaderActivity :
       this.server?.let {
         it.start()
 
-        webView.loadUrl("http://localhost:7671/assets/viewer.html")
+        webView.loadUrl("http://localhost:7671/assets/viewer.html?file=%2Fbook.pdf#page=${this.documentPageIndex}")
       }
     } else {
       this.tableOfContentsList =
