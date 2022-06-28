@@ -101,6 +101,7 @@ class PdfReaderActivity :
   private lateinit var webView: WebView
 
   private var server: PdfServer? = null
+  private var isSidebarOpen = false
 
   // vars for the activity to pass back to the reader or table of contents fragment
   private var documentPageIndex: Int = 0
@@ -231,9 +232,15 @@ class PdfReaderActivity :
   }
 
   private fun onReaderMenuTOCSelected(): Boolean {
-    this.webView.evaluateJavascript("toggleSidebar()", null)
+    this.toggleSidebar()
 
     return true
+  }
+
+  private fun toggleSidebar() {
+    this.webView.evaluateJavascript("toggleSidebar()") { result ->
+      this.isSidebarOpen = (result == "true")
+    }
   }
 
   private fun onReaderMenuSettingsSelected(): Boolean {
@@ -248,6 +255,14 @@ class PdfReaderActivity :
     this.server?.stop()
     this.pdfReaderContainer.removeAllViews()
     this.webView.destroy()
+  }
+
+  override fun onBackPressed() {
+    if (this.isSidebarOpen) {
+      this.toggleSidebar()
+    } else {
+      super.onBackPressed()
+    }
   }
 
   private class LocalContentWebViewClient(

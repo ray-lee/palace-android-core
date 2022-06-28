@@ -41,6 +41,8 @@ See https://github.com/adobe-type-tools/cmap-resources
 
       function toggleSidebar() {
         document.getElementById("sidebarToggle").click();
+
+        return PDFViewerApplication.pdfSidebar.isOpen;
       }
 
       function toggleSecondaryToolbar() {

@@ -52,6 +52,10 @@ body.palace, .palace input, .palace button, .palace select {
   line-height: 39px;
 }
 
+.toolbarField:focus {
+  border-color: var(--main-color);
+}
+
 .toolbarLabel {
   margin: 2px 2px 0 2px;
   padding: 5px 7px;
