@@ -18,9 +18,9 @@ class PdfViewerProvider : ViewerProviderType {
     "org.nypl.simplified.viewer.pdf.pdfjs.PdfViewerProvider"
 
   override fun canSupport(
-      preferences: ViewerPreferences,
-      book: Book,
-      format: BookFormat
+    preferences: ViewerPreferences,
+    book: Book,
+    format: BookFormat
   ): Boolean {
     return when (format) {
       is BookFormat.BookFormatEPUB,
@@ -39,10 +39,10 @@ class PdfViewerProvider : ViewerProviderType {
   }
 
   override fun open(
-      activity: Activity,
-      preferences: ViewerPreferences,
-      book: Book,
-      format: BookFormat
+    activity: Activity,
+    preferences: ViewerPreferences,
+    book: Book,
+    format: BookFormat
   ) {
     val formatPDF = format as BookFormat.BookFormatPDF
 

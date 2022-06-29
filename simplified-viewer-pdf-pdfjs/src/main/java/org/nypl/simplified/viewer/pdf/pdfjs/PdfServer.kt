@@ -137,14 +137,13 @@ class PdfServer(
     ): Response {
       val pdfResource = resource.initParameter(Resource::class.java)
 
-      val length = this.length ?:
-        runBlocking {
-          pdfResource.length()
+      val length = this.length ?: runBlocking {
+        pdfResource.length()
+      }
+        .getOrDefault(0L)
+        .also {
+          this.length = it
         }
-          .getOrDefault(0L)
-          .also {
-            this.length = it
-          }
 
       val range = session.headers["range"]
 

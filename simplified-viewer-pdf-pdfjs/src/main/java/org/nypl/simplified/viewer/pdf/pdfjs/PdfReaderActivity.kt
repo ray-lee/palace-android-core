@@ -221,10 +221,10 @@ class PdfReaderActivity : AppCompatActivity() {
   }
 
   private fun showErrorWithRunnable(
-      context: Context,
-      title: String,
-      failure: Exception,
-      execute: () -> Unit
+    context: Context,
+    title: String,
+    failure: Exception,
+    execute: () -> Unit
   ) {
     this.log.error("error: {}: ", title, failure)
 
