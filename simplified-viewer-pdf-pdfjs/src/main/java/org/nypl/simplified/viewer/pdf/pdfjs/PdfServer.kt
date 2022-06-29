@@ -1,4 +1,4 @@
-package org.nypl.simplified.viewer.pdf.pdfjs.server
+package org.nypl.simplified.viewer.pdf.pdfjs
 
 import android.content.Context
 import android.net.Uri
@@ -31,16 +31,16 @@ import java.io.FileNotFoundException
 import java.io.IOException
 
 class PdfServer(
-    port: Int,
-    context: Context,
-    contentProtectionProviders: List<ContentProtectionProvider>,
-    drmInfo: BookDRMInformation,
-    pdfFile: File
+  val port: Int,
+  context: Context,
+  contentProtectionProviders: List<ContentProtectionProvider>,
+  drmInfo: BookDRMInformation,
+  pdfFile: File
 ) : RouterNanoHTTPD("127.0.0.1", port) {
   private val log: Logger = LoggerFactory.getLogger(PdfServer::class.java)
 
-  private lateinit var publication: Publication
-  private lateinit var pdfResource: Resource
+  private var publication: Publication
+  private var pdfResource: Resource
 
   init {
     val streamer = Streamer(
@@ -96,59 +96,57 @@ class PdfServer(
   override fun stop() {
     super.stop()
 
-    val pdfResource = this.pdfResource
-
-      runBlocking {
-          pdfResource.close()
-      }
+    runBlocking {
+      this@PdfServer.pdfResource.close()
+    }
 
     this.publication.close()
   }
 
-  public class AssetHandler : BaseHandler() {
+  class AssetHandler : BaseHandler() {
     override fun handle(
-        resource: UriResource,
-        uri: Uri,
-        parameters: Map<String, String>?,
-        session: IHTTPSession
+      resource: UriResource,
+      uri: Uri,
+      parameters: Map<String, String>?,
+      session: IHTTPSession
     ): Response {
       val filename = uri.pathSegments.drop(1).joinToString("/")
       val context = resource.initParameter(Context::class.java)
       val assetStream = context.assets.open(filename)
 
       val mediaType = runBlocking {
-          MediaType.of(fileExtension = File(filename).extension) ?: MediaType.BINARY
+        MediaType.of(fileExtension = File(filename).extension) ?: MediaType.BINARY
       }
 
       return Response.newChunkedResponse(
-          Status.OK,
-          mediaType.toString(),
-          assetStream
+        Status.OK,
+        mediaType.toString(),
+        assetStream
       )
     }
   }
 
-  public class PdfHandler : BaseHandler() {
+  class PdfHandler : BaseHandler() {
     private var length: Long? = null
 
     override fun handle(
-        resource: UriResource,
-        uri: Uri,
-        parameters: Map<String, String>?,
-        session: IHTTPSession
+      resource: UriResource,
+      uri: Uri,
+      parameters: Map<String, String>?,
+      session: IHTTPSession
     ): Response {
       val pdfResource = resource.initParameter(Resource::class.java)
 
       val length = this.length ?:
         runBlocking {
-            pdfResource.length()
+          pdfResource.length()
         }
           .getOrDefault(0L)
           .also {
             this.length = it
           }
 
-      val range = session.headers.get("range")
+      val range = session.headers["range"]
 
       return if (range == null) {
         handleFull(length)
@@ -161,9 +159,11 @@ class PdfServer(
       length: Long
     ): Response {
       return Response.newChunkedResponse(
-          Status.OK,
-          "application/pdf",
-          ByteArrayInputStream(ByteArray(128))
+        Status.OK,
+        "application/pdf",
+        // This initial response will be discarded by the PDF viewer once it sees that range
+        // requests are supported, so we can just return some dummy data.
+        ByteArrayInputStream(ByteArray(8))
       ).apply {
         addHeader("Accept-Ranges", "bytes")
         addHeader("Cache-Control", "no-store")
@@ -172,23 +172,23 @@ class PdfServer(
     }
 
     private fun handlePartial(
-        pdfResource: Resource,
-        length: Long,
-        range: String
+      pdfResource: Resource,
+      length: Long,
+      range: String
     ): Response {
       val longRange = parseRange(range)
 
       val data = runBlocking {
-          pdfResource.read(longRange)
+        pdfResource.read(longRange)
       }.getOrDefault(ByteArray(0))
 
-      val start = longRange.start
-      val end = longRange.endInclusive
+      val start = longRange.first
+      val end = longRange.last
 
       return Response.newFixedLengthResponse(
-          Status.PARTIAL_CONTENT,
-          "application/pdf",
-          data
+        Status.PARTIAL_CONTENT,
+        "application/pdf",
+        data
       ).apply {
         addHeader("Accept-Ranges", "bytes")
         addHeader("Cache-Control", "no-store")
@@ -205,7 +205,7 @@ class PdfServer(
     }
   }
 
-  public abstract class BaseHandler : DefaultHandler() {
+  abstract class BaseHandler : DefaultHandler() {
     private val log: Logger = LoggerFactory.getLogger(BaseHandler::class.java)
 
     private fun createErrorResponse(status: Status) =
@@ -218,7 +218,11 @@ class PdfServer(
     override fun getText() = ""
     override fun getStatus() = Status.OK
 
-    override fun get(uriResource: UriResource?, urlParams: Map<String, String>?, session: IHTTPSession?): Response {
+    override fun get(
+      uriResource: UriResource?,
+      urlParams: Map<String, String>?,
+      session: IHTTPSession?
+    ): Response {
       uriResource ?: return notFoundResponse
       session ?: return notFoundResponse
 
@@ -245,10 +249,10 @@ class PdfServer(
     }
 
     abstract fun handle(
-        resource: UriResource,
-        uri: Uri,
-        parameters: Map<String, String>?,
-        session: IHTTPSession
+      resource: UriResource,
+      uri: Uri,
+      parameters: Map<String, String>?,
+      session: IHTTPSession
     ): Response
   }
 }

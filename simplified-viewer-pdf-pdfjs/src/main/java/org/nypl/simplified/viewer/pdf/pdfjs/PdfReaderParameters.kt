@@ -10,14 +10,14 @@ import java.io.Serializable
  * Represents the parameters to pass to the [PdfReaderActivity].
  *
  * @property accountId Account holders ID
- * @property documentTile String title of the PDF PDF Book
+ * @property documentTitle String title of the PDF PDF Book
  * @property pdfFile PDF file to load
  * @property id The BookID for the PDF Book
  */
 data class PdfReaderParameters(
-    val accountId: AccountID,
-    val documentTile: String,
-    val pdfFile: File,
-    val id: BookID,
-    val drmInfo: BookDRMInformation
+  val accountId: AccountID,
+  val documentTitle: String,
+  val pdfFile: File,
+  val id: BookID,
+  val drmInfo: BookDRMInformation
 ) : Serializable

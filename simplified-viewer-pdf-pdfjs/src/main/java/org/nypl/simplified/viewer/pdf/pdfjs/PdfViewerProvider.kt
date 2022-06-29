@@ -12,7 +12,7 @@ import org.slf4j.LoggerFactory
 class PdfViewerProvider : ViewerProviderType {
 
   private val logger =
-      LoggerFactory.getLogger(PdfViewerProvider::class.java)
+    LoggerFactory.getLogger(PdfViewerProvider::class.java)
 
   override val name: String =
     "org.nypl.simplified.viewer.pdf.pdfjs.PdfViewerProvider"
@@ -45,14 +45,15 @@ class PdfViewerProvider : ViewerProviderType {
       format: BookFormat
   ) {
     val formatPDF = format as BookFormat.BookFormatPDF
+
     PdfReaderActivity.startActivity(
       from = activity,
       parameters = PdfReaderParameters(
-          accountId = book.account,
-          documentTile = book.entry.title,
-          pdfFile = formatPDF.file!!,
-          id = book.id,
-          drmInfo = formatPDF.drmInformation
+        accountId = book.account,
+        documentTitle = book.entry.title,
+        pdfFile = formatPDF.file!!,
+        id = book.id,
+        drmInfo = formatPDF.drmInformation
       )
     )
   }
