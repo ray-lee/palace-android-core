@@ -181,20 +181,17 @@ class PdfReaderActivity : AppCompatActivity() {
         fun onPageChanged(pageIndex: Int) {
           this@PdfReaderActivity.onReaderPageChanged(pageIndex)
         }
+
+        @JavascriptInterface
+        fun onPageClick() {
+          this@PdfReaderActivity.onReaderPageClick()
+        }
       },
       "PDFListener"
     )
 
     this.pdfReaderContainer = findViewById(R.id.pdf_reader_container)
     this.pdfReaderContainer.addView(this.webView)
-  }
-
-  private fun onClickPerformedOnWebView() {
-    if (this.supportActionBar?.isShowing == true) {
-      this.supportActionBar?.hide()
-    } else {
-      this.supportActionBar?.show()
-    }
   }
 
   private fun createPdfServer(drmInfo: BookDRMInformation, pdfFile: File) {
@@ -278,6 +275,16 @@ class PdfReaderActivity : AppCompatActivity() {
     }
 
     return super.onOptionsItemSelected(item)
+  }
+
+  private fun onReaderPageClick() {
+    this.uiThread.runOnUIThread {
+      if (this.supportActionBar?.isShowing == true) {
+        this.supportActionBar?.hide()
+      } else {
+        this.supportActionBar?.show()
+      }
+    }
   }
 
   private fun onReaderPageChanged(pageIndex: Int) {
