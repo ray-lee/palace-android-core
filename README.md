@@ -1,7 +1,7 @@
-Library Simplified
+The Palace Project Android Client
 ===
 
-[![Build Status](https://img.shields.io/github/workflow/status/ThePalaceProject/android-core/Android%20CI%20(Authenticated)?style=flat-square)](https://github.com/ThePalaceProject/android-core/actions?query=workflow%3A%22Android+CI+%28Authenticated%29%22)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/ThePalaceProject/android-core/android-main.yml?branch=main&style=flat-square)](https://github.com/ThePalaceProject/android-core/actions/workflows/android-main.yml)
 
 LYRASIS fork of the NYPL's [Library Simplified](http://www.librarysimplified.org/) Android client.
 
